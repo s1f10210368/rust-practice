@@ -12,9 +12,8 @@ fn main()
         .add_systems
         (   Update,
             (   bevy::window::close_on_esc, //[ESC]キーで終了
-                move_helloworld,            //移動
-                rotate_helloworld,          //回転
-                scale_helloworld,           //拡縮
+                change_color_helloworld,    //文字の色を変える
+                change_size_helloworld,     //文字の大きさを変える
             )
         )
         .run();
@@ -26,70 +25,66 @@ fn spawn_camera2d( mut cmds: Commands )
 }
 
 //マーカーの準備
-#[derive( Component )] struct HelloWorld1;
-#[derive( Component )] struct HelloWorld2;
-#[derive( Component )] struct HelloWorld3;
+#[derive( Component )] struct HelloWorld;
 
 //2Dテキストを作る
 fn spawn_text2d_helloworld( mut cmds: Commands )
-{   let func = | x: i32 |
-    {   let textstyle = TextStyle { font_size: 50.0, ..default() };
-        let text = Text::from_section( "Hello, world!", textstyle );
-        let transform = Transform::from_xyz( x as f32, 0.0, 0.0 );
-    
-        Text2dBundle { text, transform, ..default() }
-    };
-    
-    cmds.spawn( ( func( -400 ), HelloWorld1 ) ); //マーカー１付きspawn
-    cmds.spawn( ( func(    0 ), HelloWorld2 ) ); //マーカー２付きspawn
-    cmds.spawn( ( func(  400 ), HelloWorld3 ) ); //マーカー３付きspawn
+{   //"Hello, world!"を１文字ごとに分割
+    let mut sections = Vec::new();
+    for char in "Hello, world!".chars()
+    {   let value = char.to_string();
+        let style = TextStyle { font_size: 100.0, ..default() };
+        sections.push( TextSection { value, style } );
+    }
+    let text = Text { sections, ..default() };
+
+    cmds.spawn( ( Text2dBundle { text, ..default() }, HelloWorld ) );
 }
 
-//移動
-fn move_helloworld
-(   mut q_transform: Query<&mut Transform, With<HelloWorld1>>, //マーカー１で検索
+//文字の色を変える
+fn change_color_helloworld
+(   mut q_text: Query<&mut Text, With<HelloWorld>>,
     time: Res<Time>,
-    mut angle: Local<f32>, //ローカル変数
+    mut angle: Local<f32>,
 )
-{   let Ok ( mut transform ) = q_transform.get_single_mut() else { return };
+{   let Ok ( mut text ) = q_text.get_single_mut() else { return };
 
     let time_delta = time.delta().as_secs_f32(); //前回の実行からの経過時間
     *angle += 360.0 * time_delta;
     *angle -= if *angle > 360.0 { 360.0 } else { 0.0 };
- 
-    //楕円軌道の移動
-    let x = angle.to_radians().cos() * 400.0; //横軸は半径400
-    let y = angle.to_radians().sin() * 200.0; //縦軸は半径200
-    transform.translation = Vec3::new( x, y, 0.0 );
+
+    //text.sectionsをイテレーターで回して、文字ごとに色を変える
+    for ( i, char ) in text.sections.iter_mut().enumerate()
+    {   //hue(色相)
+        let mut hue = *angle + 10.0 * i as f32;
+        hue -= if hue > 360.0 { 360.0 } else { 0.0 };
+
+        //文字の色を変更
+        char.style.color = Color::hsl( hue, 1.0, 0.5 );
+    } 
 }
 
-//回転
-fn rotate_helloworld
-(   mut q_transform: Query<&mut Transform, With<HelloWorld2>>, //マーカー２で検索
+//文字の大きさを変える
+fn change_size_helloworld
+(   mut q_text: Query<&mut Text, With<HelloWorld>>,
     time: Res<Time>,
+    mut angle: Local<f32>,
 )
-{   let Ok ( mut transform ) = q_transform.get_single_mut() else { return };
-
-    let time_delta = time.delta().as_secs_f32(); //前回の実行からの経過時間
-    let angle = 360.0 * time_delta;
-    let quat = Quat::from_rotation_z( angle.to_radians() );
-
-    //回転(四元数Quatは掛け算で回る)
-    transform.rotation *= quat;
-}
-
-//拡縮
-fn scale_helloworld
-(   mut q_transform: Query<&mut Transform, With<HelloWorld3>>, //マーカー３で検索
-    time: Res<Time>,
-    mut angle: Local<f32>, //ローカル変数
-)
-{   let Ok ( mut transform ) = q_transform.get_single_mut() else { return };
+{   let Ok ( mut text ) = q_text.get_single_mut() else { return };
 
     let time_delta = time.delta().as_secs_f32(); //前回の実行からの経過時間
     *angle += 360.0 * time_delta;
     *angle -= if *angle > 360.0 { 360.0 } else { 0.0 };
- 
-    //拡縮(sin()がマイナスになると表示が反転する)
-    transform.scale = Vec3::ONE * angle.to_radians().sin();
+
+    //text.sectionsをイテレーターで回して、文字ごとに大きさを変える
+    for ( i, char ) in text.sections.iter_mut().enumerate()
+    {   //sin()を使って文字の大きさを伸縮させる
+        let mut angle = *angle + 10.0 * i as f32;
+        angle -= if angle > 360.0 { 360.0 } else { 0.0 };
+        let size = ( 2.0 + angle.to_radians().sin() ) * 50.0;
+
+        //文字の大きさを変更
+        //Note：小数点以下を処理しないと実行時にメモリフットプリントが爆発する
+        char.style.font_size = ( size * 10.0 ).floor() / 10.0;
+    }
 }
