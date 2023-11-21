@@ -10,7 +10,7 @@ fn main()
     App::new()
         .add_plugins
         (   DefaultPlugins //各種の面倒を見てもらう
-                /*.set( backend_dx12 )*/ //Note：この行をコメントアウトするとbackendがデフォルト選択される
+                /*.set( backend_dx12 )*/ //Note：この行をコメントアウトするとデフォルトになる
         )
         .add_systems
         (   Startup, 
@@ -21,53 +21,17 @@ fn main()
         .add_systems
         (   Update,
             (   bevy::window::close_on_esc, //[ESC]キーで終了
-                move_orbit_camera,          //極座標カメラを動かす
             )
         )
         .run();
 }
 
-//------------------------------------------------------------------------------
-
-//極座標の型
-#[derive( Clone, Copy )]
-struct Orbit
-{   r    : f32, //極座標のr（注目点からカメラまでの距離）
-    theta: f32, //極座標のΘ（注目点から見たカメラの垂直角度）
-    phi  : f32, //極座標のφ（注目点から見たカメラの水平角度）
-}
-
-//極座標から直交座標へ変換するメソッド
-impl Orbit
-{   fn into_vec3( self ) -> Vec3
-    {   let x = self.r * self.theta.sin() * self.phi.sin();
-        let y = self.r * self.theta.cos() * -1.0;
-        let z = self.r * self.theta.sin() * self.phi.cos();
-        Vec3::new( x, y, z )
-    }
-}
-
-//------------------------------------------------------------------------------
-
-//極座標カメラに付けるComponent
-#[derive( Component )]
-struct OrbitCamera { orbit: Orbit }
-
-//極座標カメラの初期位置
-impl Default for OrbitCamera
-{   fn default() -> Self
-    {   Self { orbit: Orbit { r: 5.0, theta: PI * 0.8, phi: TAU * 0.0 } }
-    }
-}
-
 //カメラと光源を作る
 fn spawn_camera3d_and_light( mut cmds: Commands )
 {   //3Dカメラ
-    let orbit_camera = OrbitCamera::default();
-    let vec3 = orbit_camera.orbit.into_vec3();
-    cmds.spawn( ( Camera3dBundle::default(), orbit_camera ) )
+    cmds.spawn( Camera3dBundle::default() )
         .insert
-        (   Transform::from_translation( vec3 )    //カメラの位置
+        (   Transform::from_translation( Vec3::new( -1.0, 1.0, 2.0 ) ) //カメラの位置
                 .looking_at( Vec3::ZERO, Vec3::Y ) //カメラレンズの向き
         );
 
@@ -85,8 +49,6 @@ fn spawn_camera3d_and_light( mut cmds: Commands )
                 .looking_at( Vec3::ZERO, Vec3::Z )   //光源の向き
         );
 }
-
-//------------------------------------------------------------------------------
 
 //3Dオブジェクトを作る
 fn spawn_3d_lockedchest
@@ -150,37 +112,4 @@ fn spawn_3d_lockedchest
                     );
             }
         );
-}
-
-//------------------------------------------------------------------------------
-
-//極座標カメラを動かす
-fn move_orbit_camera
-(   mut q_camera: Query<( &mut OrbitCamera, &mut Transform )>,
-    time: Res<Time>,
-    mut angle: Local<f32>,
-)
-{   let Ok ( ( mut camera, mut transform ) ) = q_camera.get_single_mut()
-        else { return };
-
-    let time_delta = time.delta().as_secs_f32(); //前回の実行からの経過時間
-    let angle_delta = TAU * time_delta * 0.4; //速すぎたので0.4倍に調整した
-    *angle += angle_delta;
-    *angle -= if *angle > TAU { TAU } else { 0.0 };
-
-    //水平方向は等速円運動
-    camera.orbit.phi += angle_delta;
-    camera.orbit.phi -= if camera.orbit.phi > TAU { TAU } else { 0.0 };
-
-    //極座標から直交座標を求める
-    let translation = Orbit
-    {   phi  : camera.orbit.phi,
-        theta: camera.orbit.theta + PI * 0.1 * angle.sin(), //sin()で振動を加える
-        r    : camera.orbit.r     + 3.0      * angle.sin(), //sin()で振動を加える
-    }
-    .into_vec3();
-
-    //カメラの位置と向きを更新する
-    *transform = Transform::from_translation( translation )
-        .looking_at( Vec3::ZERO, Vec3::Y );
 }
