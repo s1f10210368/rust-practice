@@ -162,3 +162,5 @@ fn show_parameter
 
     text.sections[ 0 ].value = info;
 }
+
+なぜか動かない
