@@ -3,6 +3,8 @@ use bevy::
 {   prelude::*,
     render::*, render::settings::*,
     core_pipeline::clear_color::*,
+    input::mouse::*,
+    window::WindowMode::*,
 };
 
 //standard library
@@ -12,6 +14,9 @@ use std::f32::consts::*;
 mod spawn_objs;
 mod const_defs;
 use const_defs::*;
+use catch_input::*;
+use spawn_objs::*;
+mod catch_input;
 
 //------------------------------------------------------------------------------
 
@@ -22,32 +27,41 @@ fn main()
     let backend_dx12 = RenderPlugin { wgpu_settings };
 
     App::new()
+        //DefaultPluginsに各種の面倒を見てもらう
         .add_plugins
-        (   DefaultPlugins //各種の面倒を見てもらう
-                /*.set( backend_dx12 )*/ //Note：この行をコメントアウトするとbackendがデフォルト選択される
+        (   DefaultPlugins
+                //Note：この行をコメントアウトするとデフォルトのbackend
+                /*.set( backend_dx12 )*/
         )
+
+        //各種オブジェクトを作成する
         .add_systems
         (   Startup, 
-            (   spawn_objs::camera3d_and_light, //3Dカメラとライトを作る
-                spawn_objs::locked_chest,       //3Dオブジェクトを作る
-                spawn_objs::camera2d,           //2Dカメラを作る(情報表示用)
-                spawn_objs::display_board,      //UIテキストを作る(情報表示用)
+            (   spawn_objs::camera3d_and_light, //3Dカメラとライト
+                spawn_objs::locked_chest,       //3Dオブジェクト(宝箱)
+                spawn_objs::camera2d,           //2Dカメラ(情報表示用)
+                spawn_objs::display_board,      //UIテキスト(情報表示用)
             )
         )
+
+        //メインルーチンを登録する
         .add_systems
         (   Update,
-            (   //極座標を更新する
-                (   catch_input_from_keyboard, //キー入力による更新
-                    // catch_input_from_mouse,
-                    // catch_input_from_gamepad,
+            (   (   (   catch_input::from_keyboard, //極座標を更新(キー入力)
+                        catch_input::from_mouse,    //極座標を更新(マウス)
+                        catch_input::from_gamepad,  //極座標を更新(ゲームパッド)
+                    ),
+                    move_orbit_camera,              //極座標カメラを移動
                 )
-                .before( move_orbit_camera ), //実行順の制御
+                .chain(), //実行順を固定
 
                 bevy::window::close_on_esc, //[ESC]キーで終了
-                move_orbit_camera,          //極座標カメラを動かす
-                show_parameter,             //情報を表示する
+                toggle_window_mode,         //ウィンドウとフルスクリーンの切換
+                show_parameter,             //情報を表示 
             )
         )
+
+        //アプリを実行する
         .run();
 }
 
@@ -75,7 +89,7 @@ impl Orbit
 
 //極座標カメラに付けるComponent
 #[derive( Component )]
-struct OrbitCamera { orbit: Orbit }
+pub struct OrbitCamera { orbit: Orbit }
 
 //極座標カメラの初期位置
 impl Default for OrbitCamera
@@ -96,38 +110,27 @@ struct DisplayBoard;
 
 //------------------------------------------------------------------------------
 
-//キー入力によって極座標カメラの位置を更新する
-fn catch_input_from_keyboard
-(   mut q_camera: Query<&mut OrbitCamera>,
-    time: Res<Time>,
+//ウィンドウとフルスクリーンの切換(トグル動作)
+pub fn toggle_window_mode
+(   mut q_window: Query<&mut Window>,
     inkey: Res<Input<KeyCode>>,
+    inbtn: Res<Input<GamepadButton>>,
 )
-{   let Ok ( mut camera ) = q_camera.get_single_mut() else { return };
-    let orbit = &mut camera.orbit;
+{   let Ok( mut window ) = q_window.get_single_mut() else { return };
 
-    let time_delta = time.delta().as_secs_f32(); //前回の実行からの経過時間
+    //[Alt]+[Enter]キーの状態
+    let is_key_pressed =
+        ( inkey.pressed( KeyCode::AltRight ) || inkey.pressed( KeyCode::AltLeft ) )
+            && inkey.just_pressed( KeyCode::Return );
 
-    for keycode in inkey.get_pressed()
-    {   match keycode
-        {   KeyCode::Z =>
-                orbit.r = ( orbit.r + time_delta ).min( ORBIT_CAMERA_MAX_R ),
-            KeyCode::X =>
-                orbit.r = ( orbit.r - time_delta ).max( ORBIT_CAMERA_MIN_R ),
-            KeyCode::Up =>
-                orbit.theta = ( orbit.theta + time_delta ).min( ORBIT_CAMERA_MAX_THETA ),
-            KeyCode::Down =>
-                orbit.theta = ( orbit.theta - time_delta ).max( ORBIT_CAMERA_MIN_THETA ),
-            KeyCode::Left =>
-            {   orbit.phi -= time_delta;
-                orbit.phi += if orbit.phi < 0.0 { TAU } else { 0.0 };
-            }
-            KeyCode::Right =>
-            {   orbit.phi += time_delta;
-                orbit.phi -= if orbit.phi >= TAU { TAU } else { 0.0 };
-            }
-            _ => (),
-        }
-    }
+    //入力がないなら
+    if ! is_key_pressed  { return }
+
+    //ウィンドウとフルスクリーンを切り替える
+    window.mode = match window.mode
+    {   Windowed => SizedFullscreen, //or BorderlessFullscreen, Fullscreen
+        _        => Windowed,
+    };
 }
 
 //------------------------------------------------------------------------------
@@ -155,12 +158,12 @@ fn show_parameter
     let Ok ( camera ) = q_camera.get_single() else { return };
     let orbit = &camera.orbit;
 
+    //極座標の情報
     let r     = orbit.r;
     let theta = orbit.theta.to_degrees(); //ラジアンから度へ変換
     let phi   = orbit.phi.to_degrees();   //ラジアンから度へ変換
     let info  = format!( " r:{r:3.02}\n theta:{theta:06.02}\n phi:{phi:06.02}" );
 
-    text.sections[ 0 ].value = info;
+    //表示の更新
+    text.sections[ 0 ].value = format!( "{info}" );
 }
-
-なぜか動かない
