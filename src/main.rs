@@ -1,9 +1,10 @@
 //external crates
 use bevy::
 {   prelude::*,
-    render::*, render::settings::*,
+    render::*, render::settings::*, render::camera::*,
     core_pipeline::clear_color::*,
     input::mouse::*,
+    sprite::*,
     window::WindowMode::*,
 };
 
@@ -56,7 +57,8 @@ fn main()
 
                 bevy::window::close_on_esc, //[ESC]キーで終了
                 toggle_window_mode,         //ウィンドウとフルスクリーンの切換
-                show_parameter,             //情報を表示 
+                show_parameter,             //情報を表示
+                show_gizmos,                //ギズモの表示
             )
         )
 
@@ -109,6 +111,18 @@ struct DisplayBoard;
 
 //------------------------------------------------------------------------------
 
+//ギズモを使って枠を表示
+fn show_gizmos( mut gizmos: Gizmos )
+{   gizmos.rect_2d
+    (   Vec2::ZERO,    //position
+        0.0,           //rotation
+        VIEWPORT_SIZE, //size
+        Color::YELLOW, //color
+    );
+}
+
+//------------------------------------------------------------------------------
+
 //ウィンドウとフルスクリーンの切換(トグル動作)
 pub fn toggle_window_mode
 (   mut q_window: Query<&mut Window>,
@@ -123,7 +137,7 @@ pub fn toggle_window_mode
             && inkey.just_pressed( KeyCode::Return );
 
     //入力がないなら
-    if ! is_key_pressed  { return }
+    if ! is_key_pressed { return }
 
     //ウィンドウとフルスクリーンを切り替える
     window.mode = match window.mode
@@ -152,10 +166,12 @@ fn move_orbit_camera
 fn show_parameter
 (   mut q_text: Query<&mut Text, With<DisplayBoard>>,
     q_camera: Query<&OrbitCamera>,
+    q_window: Query<&Window>,
 )
 {   let Ok ( mut text ) = q_text.get_single_mut() else { return };
     let Ok ( camera ) = q_camera.get_single() else { return };
     let orbit = &camera.orbit;
+    let Ok( window ) = q_window.get_single() else { return };
 
     //極座標の情報
     let r     = orbit.r;
@@ -163,6 +179,14 @@ fn show_parameter
     let phi   = orbit.phi.to_degrees();   //ラジアンから度へ変換
     let info  = format!( " r:{r:3.02}\n theta:{theta:06.02}\n phi:{phi:06.02}" );
 
+    //ウィンドウの解像度の情報
+    let whs = format!
+    (   "\n width:{}\n height:{}\n scale:{}",
+        window.width(),
+        window.height(),
+        window.scale_factor(),
+    );
+
     //表示の更新
-    text.sections[ 0 ].value = format!( "{info}" );
+    text.sections[ 0 ].value = format!( "{info}{whs}" );
 }

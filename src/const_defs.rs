@@ -28,3 +28,8 @@ pub const ORBIT_CAMERA_MIN_THETA: f32 = PI * 0.51; //最小値(ラジアン)
 pub const MOUSE_WHEEL_Y_COEF : f32 = 0.1;
 pub const MOUSE_MOTION_Y_COEF: f32 = 0.01;
 pub const MOUSE_MOTION_X_COEF: f32 = 0.01;
+
+//viewportの設定値(表示エリアの矩形)
+pub const VIEWPORT_WIDTH : f32  = 600.0;
+pub const VIEWPORT_HEIGHT: f32  = 600.0;
+pub const VIEWPORT_SIZE  : Vec2 = Vec2::new( VIEWPORT_WIDTH, VIEWPORT_HEIGHT );
