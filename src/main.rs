@@ -49,7 +49,6 @@ fn main()
         (   Update,
             (   (   (   catch_input::from_keyboard, //極座標を更新(キー入力)
                         catch_input::from_mouse,    //極座標を更新(マウス)
-                        catch_input::from_gamepad,  //極座標を更新(ゲームパッド)
                     ),
                     move_orbit_camera,              //極座標カメラを移動
                 )
