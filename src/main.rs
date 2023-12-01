@@ -45,7 +45,7 @@ fn main()
             )
         )
 
-        //メインルーチンを登録する
+        //メインルーチンを登録
         .add_systems
         (   Update,
             (   (   (   catch_input::from_keyboard, //極座標を更新(キー入力)
