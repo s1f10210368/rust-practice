@@ -15,8 +15,6 @@ use std::f32::consts::*;
 mod spawn_objs;
 mod const_defs;
 use const_defs::*;
-use catch_input::*;
-use spawn_objs::*;
 mod catch_input;
 
 //------------------------------------------------------------------------------
@@ -45,7 +43,7 @@ fn main()
             )
         )
 
-        //メインルーチンを登録
+        //メインルーチンを登録する
         .add_systems
         (   Update,
             (   (   (   catch_input::from_keyboard, //極座標を更新(キー入力)
@@ -111,7 +109,7 @@ struct DisplayBoard;
 
 //------------------------------------------------------------------------------
 
-//ギズモを使って枠を表示
+// ギズモを使って枠を表示
 fn show_gizmos( mut gizmos: Gizmos )
 {   gizmos.rect_2d
     (   Vec2::ZERO,    //position
@@ -127,7 +125,6 @@ fn show_gizmos( mut gizmos: Gizmos )
 pub fn toggle_window_mode
 (   mut q_window: Query<&mut Window>,
     inkey: Res<Input<KeyCode>>,
-    inbtn: Res<Input<GamepadButton>>,
 )
 {   let Ok( mut window ) = q_window.get_single_mut() else { return };
 
